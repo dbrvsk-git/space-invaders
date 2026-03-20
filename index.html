@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SPACE INVADERS</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@400;700;900&display=swap');
+
+  :root {
+    --green: #00ff88;
+    --cyan: #00eeff;
+    --red: #ff2244;
+    --yellow: #ffee00;
+    --bg: #020810;
+    --panel: #050f1a;
+    --glow: 0 0 10px #00ff88, 0 0 20px #00ff8855;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--green);
+    font-family: 'Press Start 2P', monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,136,0.015) 2px, rgba(0,255,136,0.015) 4px),
+      repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,255,136,0.015) 2px, rgba(0,255,136,0.015) 4px);
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  #title-screen, #game-over-screen, #leaderboard-screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    z-index: 10;
+    background: var(--bg);
+  }
+
+  .hidden { display: none !important; }
+
+  h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(20px, 5vw, 42px);
+    font-weight: 900;
+    color: var(--cyan);
+    text-shadow: 0 0 20px var(--cyan), 0 0 40px #00eeff88;
+    letter-spacing: 4px;
+    text-align: center;
+  }
+
+  .subtitle {
+    font-size: 8px;
+    color: var(--green);
+    text-shadow: var(--glow);
+    text-align: center;
+    line-height: 2;
+  }
+
+  .btn {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    padding: 12px 28px;
+    background: transparent;
+    border: 2px solid var(--green);
+    color: var(--green);
+    cursor: pointer;
+    text-shadow: var(--glow);
+    box-shadow: var(--glow), inset 0 0 10px rgba(0,255,136,0.1);
+    transition: all 0.2s;
+    letter-spacing: 2px;
+  }
+
+  .btn:hover {
+    background: rgba(0,255,136,0.15);
+    box-shadow: 0 0 20px #00ff88, 0 0 40px #00ff8866, inset 0 0 20px rgba(0,255,136,0.2);
+    transform: scale(1.05);
+  }
+
+  .btn.danger {
+    border-color: var(--red);
+    color: var(--red);
+    text-shadow: 0 0 10px var(--red);
+    box-shadow: 0 0 10px var(--red), 0 0 20px #ff224455;
+  }
+
+  .btn.danger:hover {
+    background: rgba(255,34,68,0.15);
+    box-shadow: 0 0 20px var(--red), 0 0 40px #ff224466;
+  }
+
+  #game-wrapper {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  #hud {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    max-width: 600px;
+    padding: 8px 4px;
+    font-size: 8px;
+    color: var(--cyan);
+  }
+
+  #hud span { text-shadow: 0 0 8px var(--cyan); }
+
+  canvas {
+    border: 1px solid rgba(0,255,136,0.3);
+    box-shadow: 0 0 30px rgba(0,255,136,0.1), inset 0 0 60px rgba(0,0,50,0.5);
+    display: block;
+    image-rendering: pixelated;
+  }
+
+  #lives-display { color: var(--red); text-shadow: 0 0 8px var(--red); }
+
+  /* Game Over Screen */
+  #game-over-screen h2 {
+    font-size: clamp(16px, 4vw, 28px);
+    color: var(--red);
+    text-shadow: 0 0 20px var(--red), 0 0 40px #ff224488;
+    letter-spacing: 3px;
+  }
+
+  #final-score {
+    font-size: 12px;
+    color: var(--yellow);
+    text-shadow: 0 0 10px var(--yellow);
+  }
+
+  .save-form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .save-form label { font-size: 8px; color: var(--green); }
+
+  .save-form input {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    padding: 10px 16px;
+    background: var(--panel);
+    border: 1px solid var(--green);
+    color: var(--green);
+    text-align: center;
+    outline: none;
+    box-shadow: 0 0 10px rgba(0,255,136,0.2);
+    width: 220px;
+    text-transform: uppercase;
+  }
+
+  .save-form input:focus { border-color: var(--cyan); box-shadow: 0 0 15px rgba(0,238,255,0.3); }
+
+  #save-status { font-size: 7px; color: var(--yellow); min-height: 14px; }
+
+  /* Leaderboard */
+  #leaderboard-screen h2 {
+    font-size: clamp(14px, 3vw, 22px);
+    color: var(--yellow);
+    text-shadow: 0 0 20px var(--yellow);
+    letter-spacing: 3px;
+  }
+
+  #lb-table {
+    width: min(90vw, 420px);
+    border-collapse: collapse;
+    font-size: 7px;
+  }
+
+  #lb-table th {
+    color: var(--cyan);
+    text-shadow: 0 0 8px var(--cyan);
+    padding: 8px;
+    border-bottom: 1px solid rgba(0,238,255,0.3);
+    text-align: left;
+  }
+
+  #lb-table td {
+    padding: 7px 8px;
+    color: var(--green);
+    border-bottom: 1px solid rgba(0,255,136,0.1);
+  }
+
+  #lb-table tr:first-child td { color: var(--yellow); text-shadow: 0 0 8px var(--yellow); }
+  #lb-table tr:nth-child(2) td { color: #aaa; }
+  #lb-table tr:nth-child(3) td { color: #cd7f32; }
+
+  .rank-badge {
+    display: inline-block;
+    width: 20px;
+    text-align: center;
+  }
+
+  #controls-hint {
+    font-size: 6px;
+    color: rgba(0,255,136,0.4);
+    text-align: center;
+    line-height: 2.2;
+    margin-top: 8px;
+  }
+
+  .alien-anim {
+    font-size: 28px;
+    animation: float 2s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+
+  .blink { animation: blink 1s step-start infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  #wave-display { color: var(--yellow); text-shadow: 0 0 8px var(--yellow); }
+</style>
+</head>
+<body>
+
+<!-- Title Screen -->
+<div id="title-screen">
+  <div class="alien-anim">👾</div>
+  <h1>SPACE INVADERS</h1>
+  <p class="subtitle">← → nebo A D pro pohyb<br>SPACE nebo W pro střelbu<br>↑ nebo W pro pohyb taky funguje</p>
+  <button class="btn" onclick="startGame()">▶ NOVÁ HRA</button>
+  <button class="btn" onclick="showLeaderboard()" style="font-size:8px; padding:10px 20px;">🏆 ŽEBŘÍČEK</button>
+  <p id="controls-hint">← A &nbsp; → D &nbsp; SPACE = střelba &nbsp; W ↑ = střelba</p>
+</div>
+
+<!-- Game -->
+<div id="game-wrapper" class="hidden">
+  <div id="hud">
+    <span>SKÓRE: <span id="score-display">0</span></span>
+    <span id="wave-display">VLNA 1</span>
+    <span id="lives-display">♥ ♥ ♥</span>
+  </div>
+  <canvas id="gameCanvas"></canvas>
+</div>
+
+<!-- Game Over Screen -->
+<div id="game-over-screen" class="hidden">
+  <h2>⚡ GAME OVER ⚡</h2>
+  <p id="final-score">SKÓRE: 0</p>
+  <div class="save-form">
+    <label>ZADEJ JMÉNO PRO ŽEBŘÍČEK:</label>
+    <input type="text" id="player-name" maxlength="12" placeholder="HRDINA" />
+    <button class="btn" onclick="saveScore()">💾 ULOŽIT SKÓRE</button>
+    <p id="save-status"></p>
+  </div>
+  <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
+    <button class="btn" onclick="startGame()">▶ ZNOVU</button>
+    <button class="btn" onclick="showLeaderboard()">🏆 ŽEBŘÍČEK</button>
+  </div>
+</div>
+
+<!-- Leaderboard -->
+<div id="leaderboard-screen" class="hidden">
+  <h2>🏆 ŽEBŘÍČEK</h2>
+  <table id="lb-table">
+    <thead><tr><th>#</th><th>JMÉNO</th><th>SKÓRE</th><th>ČAS</th></tr></thead>
+    <tbody id="lb-body"></tbody>
+  </table>
+  <button class="btn" style="margin-top:16px" onclick="showTitle()">← ZPĚT</button>
+</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+const COLS = 11, ROWS = 5;
+const ALIEN_W = 32, ALIEN_H = 24, ALIEN_GAP_X = 12, ALIEN_GAP_Y = 10;
+const PLAYER_W = 40, PLAYER_H = 16;
+const BULLET_W = 3, BULLET_H = 12;
+const CANVAS_W = 600, CANVAS_H = 520;
+
+// ─── JSONBIN CONFIG ────────────────────────────────────────────────────────────
+// Free persistent storage via JSONBin.io — replace with your own bin/key for production
+const JSONBIN_URL = 'https://api.jsonbin.io/v3/b/6642000000000000000000'; // placeholder — see instructions
+const JSONBIN_KEY = '$2a$10$PLACEHOLDER'; // placeholder
+
+// We'll use a simple approach: store scores in a public JSONBin
+// For demo purposes, we fallback to localStorage if API not configured
+let useLocalFallback = true; // will try API, fallback to local
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = CANVAS_W;
+canvas.height = CANVAS_H;
+
+let state = {};
+let keys = {};
+let animId;
+let lastTime = 0;
+
+// ─── ALIEN DRAWING ────────────────────────────────────────────────────────────
+function drawAlien(x, y, type, frame, dead) {
+  if (dead) return;
+  ctx.save();
+  ctx.translate(x, y);
+  const colors = ['#ff4488', '#ff8844', '#ffee44', '#44ffbb', '#44aaff'];
+  ctx.fillStyle = colors[type % colors.length];
+  ctx.shadowBlur = 8;
+  ctx.shadowColor = colors[type % colors.length];
+
+  // Pixelart alien shapes
+  const W = ALIEN_W, H = ALIEN_H;
+  const px = (px, py, pw, ph) => ctx.fillRect(px - W/2, py - H/2, pw, ph);
+
+  if (type === 0) { // top row — squid
+    frame ? squid1(px, W, H) : squid2(px, W, H);
+  } else if (type < 3) { // middle rows — crab
+    frame ? crab1(px, W, H) : crab2(px, W, H);
+  } else { // bottom rows — octopus
+    frame ? octo1(px, W, H) : octo2(px, W, H);
+  }
+  ctx.restore();
+}
+
+function squid1(px, W, H) {
+  const p = (x, y, w, h) => ctx.fillRect(x - W/2, y - H/2, w, h);
+  p(12,2,8,2); p(8,4,16,2); p(6,6,4,2); p(18,6,4,2); p(6,8,20,2);
+  p(4,10,4,2); p(8,10,4,2); p(16,10,4,2); p(20,10,4,2);
+  p(6,12,20,2); p(4,14,6,2); p(22,14,6,2); p(2,16,4,2); p(8,16,4,2); p(18,16,4,2); p(26,16,4,2);
+}
+function squid2(px, W, H) {
+  const p = (x, y, w, h) => ctx.fillRect(x - W/2, y - H/2, w, h);
+  p(12,2,8,2); p(8,4,16,2); p(6,6,4,2); p(18,6,4,2); p(6,8,20,2);
+  p(4,10,4,2); p(8,10,4,2); p(16,10,4,2); p(20,10,4,2);
+  p(6,12,20,2); p(2,14,6,2); p(24,14,6,2); p(6,16,4,2); p(20,16,4,2);
+}
+function crab1(px, W, H) {
+  const p = (x, y, w, h) => ctx.fillRect(x - W/2, y - H/2, w, h);
+  p(8,2,4,2); p(20,2,4,2); p(6,4,22,2); p(4,6,4,4); p(8,6,4,2); p(14,6,4,2); p(20,6,4,2); p(24,6,4,4);
+  p(4,10,24,2); p(4,12,6,2); p(14,12,4,2); p(22,12,6,2);
+  p(4,14,4,2); p(6,16,4,2); p(22,14,4,2); p(22,16,4,2);
+}
+function crab2(px, W, H) {
+  const p = (x, y, w, h) => ctx.fillRect(x - W/2, y - H/2, w, h);
+  p(8,2,4,2); p(20,2,4,2); p(6,4,22,2); p(4,6,4,4); p(8,6,4,2); p(14,6,4,2); p(20,6,4,2); p(24,6,4,4);
+  p(4,10,24,2); p(6,12,6,2); p(14,12,4,2); p(20,12,6,2);
+  p(2,14,4,2); p(4,16,4,2); p(24,14,4,2); p(26,16,4,2);
+}
+function octo1(px, W, H) {
+  const p = (x, y, w, h) => ctx.fillRect(x - W/2, y - H/2, w, h);
+  p(6,2,20,2); p(4,4,24,2); p(2,6,4,2); p(8,6,4,2); p(14,6,4,2); p(20,6,4,2); p(26,6,4,2);
+  p(2,8,28,2); p(2,10,4,2); p(8,10,4,2); p(14,10,4,2); p(20,10,4,2); p(26,10,4,2);
+  p(4,12,8,2); p(20,12,8,2); p(2,14,4,2); p(8,14,4,2); p(20,14,4,2); p(26,14,4,2);
+}
+function octo2(px, W, H) {
+  const p = (x, y, w, h) => ctx.fillRect(x - W/2, y - H/2, w, h);
+  p(6,2,20,2); p(4,4,24,2); p(2,6,4,2); p(8,6,4,2); p(14,6,4,2); p(20,6,4,2); p(26,6,4,2);
+  p(2,8,28,2); p(2,10,4,2); p(8,10,4,2); p(14,10,4,2); p(20,10,4,2); p(26,10,4,2);
+  p(2,12,8,2); p(22,12,8,2); p(4,14,4,2); p(10,14,4,2); p(18,14,4,2); p(24,14,4,2);
+}
+
+function drawExplosion(x, y) {
+  ctx.fillStyle = '#ffee44';
+  ctx.shadowBlur = 20;
+  ctx.shadowColor = '#ffee44';
+  const chars = ['*', '+', 'x', '✦'];
+  ctx.font = '18px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(chars[Math.floor(Date.now()/100)%chars.length], x, y);
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+function initGame(wave = 1) {
+  const speedMult = 1 + (wave - 1) * 0.15;
+  state = {
+    wave,
+    score: 0,
+    lives: 3,
+    player: { x: CANVAS_W / 2, y: CANVAS_H - 40, vx: 0 },
+    bullets: [],
+    enemyBullets: [],
+    aliens: [],
+    explosions: [],
+    alienDir: 1,
+    alienSpeed: 30 * speedMult,
+    alienDropped: false,
+    alienMoveTimer: 0,
+    alienMoveInterval: 0.8 / speedMult,
+    alienFrame: 0,
+    shootTimer: 0,
+    shootInterval: 1.2 / speedMult,
+    gameOver: false,
+    won: false,
+    ufoTimer: 0,
+    ufoInterval: 20 + Math.random() * 20,
+    ufo: null,
+    started: Date.now(),
+  };
+
+  // Build alien grid
+  const startX = (CANVAS_W - (COLS * (ALIEN_W + ALIEN_GAP_X) - ALIEN_GAP_X)) / 2 + ALIEN_W / 2;
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      state.aliens.push({
+        x: startX + c * (ALIEN_W + ALIEN_GAP_X),
+        y: 60 + r * (ALIEN_H + ALIEN_GAP_Y) + (wave > 1 ? 20 : 0),
+        type: Math.floor(r / 1.5),
+        alive: true,
+        exploding: false,
+        explodeTimer: 0,
+      });
+    }
+  }
+}
+
+// ─── GAME LOOP ────────────────────────────────────────────────────────────────
+function gameLoop(ts) {
+  const dt = Math.min((ts - lastTime) / 1000, 0.05);
+  lastTime = ts;
+  update(dt);
+  render();
+  if (!state.gameOver) animId = requestAnimationFrame(gameLoop);
+  else endGame();
+}
+
+function update(dt) {
+  const s = state;
+  if (s.gameOver) return;
+
+  // Player movement
+  let speed = 280;
+  if ((keys['ArrowLeft'] || keys['a'] || keys['A'])) s.player.x -= speed * dt;
+  if ((keys['ArrowRight'] || keys['d'] || keys['D'])) s.player.x += speed * dt;
+  s.player.x = Math.max(PLAYER_W / 2, Math.min(CANVAS_W - PLAYER_W / 2, s.player.x));
+
+  // Shoot
+  if ((keys[' '] || keys['w'] || keys['W'] || keys['ArrowUp']) && !s.shootCooldown) {
+    s.bullets.push({ x: s.player.x, y: s.player.y - PLAYER_H / 2, w: BULLET_W, h: BULLET_H });
+    s.shootCooldown = true;
+    setTimeout(() => s.shootCooldown = false, 400);
+  }
+
+  // Bullets
+  s.bullets = s.bullets.filter(b => {
+    b.y -= 500 * dt;
+    return b.y > 0;
+  });
+
+  // Enemy bullets
+  s.enemyBullets = s.enemyBullets.filter(b => {
+    b.y += (200 + s.wave * 20) * dt;
+    // Hit player? (skip if invincible)
+    if (!s.playerInvincible && Math.abs(b.x - s.player.x) < PLAYER_W / 2 && Math.abs(b.y - s.player.y) < PLAYER_H / 2) {
+      s.lives--;
+      updateHUD();
+      if (s.lives <= 0) {
+        s.gameOver = true;
+      } else {
+        // Invincibility frames + flash effect
+        s.playerInvincible = true;
+        s.playerFlash = true;
+        s.playerFlashTimer = 0;
+        s.hitFlashTimer = 0.35; // screen red flash duration
+        setTimeout(() => { if (state) { state.playerInvincible = false; state.playerFlash = false; } }, 2000);
+      }
+      return false;
+    }
+    return b.y < CANVAS_H;
+  });
+
+  // Alien movement
+  s.alienMoveTimer += dt;
+  const aliveAliens = s.aliens.filter(a => a.alive);
+  if (s.alienMoveTimer >= s.alienMoveInterval) {
+    s.alienMoveTimer = 0;
+    s.alienFrame ^= 1;
+    if (s.alienDropped) {
+      s.alienDir *= -1;
+      s.alienDropped = false;
+    }
+    let hitEdge = false;
+    for (const a of aliveAliens) {
+      a.x += s.alienDir * (s.alienSpeed * s.alienMoveInterval);
+      if (a.x > CANVAS_W - ALIEN_W / 2 - 4 || a.x < ALIEN_W / 2 + 4) hitEdge = true;
+      if (a.y > CANVAS_H - 80) s.gameOver = true;
+    }
+    if (hitEdge) {
+      for (const a of aliveAliens) a.y += 18;
+      s.alienDropped = true;
+    }
+    // Adapt speed to remaining aliens
+    s.alienMoveInterval = Math.max(0.05, 0.8 / (1 + (COLS * ROWS - aliveAliens.length) * 0.05)) / (1 + (s.wave - 1) * 0.15);
+  }
+
+  // Explosions
+  s.aliens.forEach(a => {
+    if (a.exploding) {
+      a.explodeTimer -= dt;
+      if (a.explodeTimer <= 0) { a.alive = false; a.exploding = false; }
+    }
+  });
+
+  // Bullet-alien collision
+  s.bullets.forEach(b => {
+    s.aliens.forEach(a => {
+      if (!a.alive && !a.exploding) return;
+      if (Math.abs(b.x - a.x) < ALIEN_W / 2 && Math.abs(b.y - a.y) < ALIEN_H / 2) {
+        if (!a.exploding) {
+          a.exploding = true;
+          a.explodeTimer = 0.3;
+          const points = [30, 20, 10][Math.min(Math.floor(a.type / 1.5), 2)] * s.wave;
+          s.score += points;
+          updateHUD();
+        }
+        b.y = -999;
+      }
+    });
+  });
+
+  // Enemy shooting
+  s.shootTimer += dt;
+  if (s.shootTimer >= s.shootInterval) {
+    s.shootTimer = 0;
+    s.shootInterval = (0.8 + Math.random() * 0.8) / (1 + (s.wave - 1) * 0.2);
+    if (aliveAliens.length > 0) {
+      const shooter = aliveAliens[Math.floor(Math.random() * aliveAliens.length)];
+      s.enemyBullets.push({ x: shooter.x, y: shooter.y + ALIEN_H / 2 });
+    }
+  }
+
+  // Hit flash timers
+  if (s.hitFlashTimer > 0) s.hitFlashTimer -= dt;
+  if (s.playerFlash) {
+    s.playerFlashTimer = (s.playerFlashTimer || 0) + dt;
+  }
+  if (!s.ufo && s.ufoTimer >= s.ufoInterval) {
+    s.ufoTimer = 0;
+    s.ufoInterval = 15 + Math.random() * 20;
+    s.ufo = { x: -30, y: 30, speed: 120, dir: 1 };
+    if (Math.random() < 0.5) { s.ufo.x = CANVAS_W + 30; s.ufo.dir = -1; }
+  }
+  if (s.ufo) {
+    s.ufo.x += s.ufo.speed * s.ufo.dir * dt;
+    // Bullet hit
+    s.bullets.forEach(b => {
+      if (s.ufo && Math.abs(b.x - s.ufo.x) < 20 && Math.abs(b.y - s.ufo.y) < 10) {
+        s.score += 100 * s.wave;
+        s.ufo = null;
+        b.y = -999;
+        updateHUD();
+      }
+    });
+    if (s.ufo && (s.ufo.x > CANVAS_W + 40 || s.ufo.x < -40)) s.ufo = null;
+  }
+
+  // Win condition
+  if (aliveAliens.every(a => !a.alive && !a.exploding) && s.aliens.length > 0) {
+    // Next wave after short delay
+    s.won = true;
+    s.gameOver = true;
+  }
+}
+
+function updateHUD() {
+  document.getElementById('score-display').textContent = state.score.toString().padStart(6, '0');
+  document.getElementById('lives-display').textContent = '♥ '.repeat(Math.max(0, state.lives)).trim();
+  document.getElementById('wave-display').textContent = 'VLNA ' + state.wave;
+}
+
+function render() {
+  ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+
+  // Stars
+  ctx.fillStyle = 'white';
+  for (let i = 0; i < 60; i++) {
+    const sx = (i * 137.5 + state.wave * 7) % CANVAS_W;
+    const sy = (i * 97.3) % CANVAS_H;
+    const br = Math.sin(Date.now() / 1000 + i) * 0.4 + 0.6;
+    ctx.globalAlpha = br * 0.5;
+    ctx.fillRect(sx, sy, 1, 1);
+  }
+  ctx.globalAlpha = 1;
+
+  // Ground line
+  ctx.strokeStyle = 'rgba(0,255,136,0.3)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, CANVAS_H - 24);
+  ctx.lineTo(CANVAS_W, CANVAS_H - 24);
+  ctx.stroke();
+
+  // Player (blink when invincible)
+  const showPlayer = !state.playerFlash || Math.floor(state.playerFlashTimer * 8) % 2 === 0;
+  if (showPlayer) {
+    ctx.fillStyle = state.playerInvincible ? '#ff8844' : '#00ff88';
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = state.playerInvincible ? '#ff8844' : '#00ff88';
+    const px = state.player.x, py = state.player.y;
+    ctx.fillRect(px - 4, py - 8, 8, 8);
+    ctx.fillRect(px - 12, py, 24, 6);
+    ctx.fillRect(px - 20, py + 6, 40, 4);
+    ctx.fillRect(px - 20, py + 4, 8, 6);
+    ctx.fillRect(px + 12, py + 4, 8, 6);
+    ctx.shadowBlur = 0;
+  }
+
+  // Red screen flash on hit
+  if (state.hitFlashTimer > 0) {
+    const alpha = Math.min(0.35, state.hitFlashTimer * 1.5);
+    ctx.fillStyle = `rgba(255,0,40,${alpha})`;
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    // HIT text
+    if (state.hitFlashTimer > 0.15) {
+      ctx.fillStyle = '#ff2244';
+      ctx.shadowBlur = 20;
+      ctx.shadowColor = '#ff2244';
+      ctx.font = 'bold 32px "Press Start 2P", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('HIT!', CANVAS_W / 2, CANVAS_H / 2);
+      ctx.shadowBlur = 0;
+    }
+  }
+
+  // Bullets
+  ctx.fillStyle = '#00ff88';
+  ctx.shadowBlur = 6;
+  ctx.shadowColor = '#00ff88';
+  state.bullets.forEach(b => ctx.fillRect(b.x - 1, b.y, 3, BULLET_H));
+  ctx.shadowBlur = 0;
+
+  // Enemy bullets
+  ctx.shadowBlur = 6;
+  ctx.shadowColor = '#ff4444';
+  state.enemyBullets.forEach(b => {
+    ctx.fillStyle = '#ff4444';
+    ctx.fillRect(b.x - 2, b.y, 4, 10);
+  });
+  ctx.shadowBlur = 0;
+
+  // Aliens
+  state.aliens.forEach(a => {
+    if (!a.alive && !a.exploding) return;
+    if (a.exploding) {
+      drawExplosion(a.x, a.y);
+    } else {
+      drawAlien(a.x, a.y, a.type, state.alienFrame, false);
+    }
+  });
+
+  // UFO
+  if (state.ufo) {
+    ctx.fillStyle = '#ff00ff';
+    ctx.shadowBlur = 14;
+    ctx.shadowColor = '#ff00ff';
+    ctx.fillRect(state.ufo.x - 20, state.ufo.y - 5, 40, 10);
+    ctx.fillRect(state.ufo.x - 12, state.ufo.y - 10, 24, 8);
+    ctx.fillRect(state.ufo.x - 4, state.ufo.y - 14, 8, 4);
+    ctx.fillStyle = '#ffaaff';
+    ctx.font = '7px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('100+', state.ufo.x, state.ufo.y + 18);
+    ctx.shadowBlur = 0;
+  }
+}
+
+// ─── SCREENS ──────────────────────────────────────────────────────────────────
+function show(id) {
+  ['title-screen','game-over-screen','leaderboard-screen','game-wrapper'].forEach(x =>
+    document.getElementById(x).classList.add('hidden')
+  );
+  document.getElementById(id).classList.remove('hidden');
+}
+
+function showTitle() { cancelAnimationFrame(animId); show('title-screen'); }
+
+function startGame(wave = 1, prevScore = 0) {
+  show('game-wrapper');
+  initGame(wave);
+  if (prevScore) state.score = prevScore;
+  updateHUD();
+  lastTime = performance.now();
+  animId = requestAnimationFrame(gameLoop);
+}
+
+function endGame() {
+  if (state.won) {
+    // Next wave
+    setTimeout(() => {
+      show('game-wrapper');
+      const nextWave = state.wave + 1;
+      const sc = state.score;
+      initGame(nextWave);
+      state.score = sc;
+      updateHUD();
+      lastTime = performance.now();
+      animId = requestAnimationFrame(gameLoop);
+    }, 1200);
+    // Flash wave clear
+    ctx.fillStyle = 'rgba(0,238,255,0.15)';
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    ctx.fillStyle = '#00eeff';
+    ctx.font = 'bold 28px "Orbitron", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`VLNA ${state.wave} ČISTÁ!`, CANVAS_W / 2, CANVAS_H / 2);
+    return;
+  }
+  // Game over
+  show('game-over-screen');
+  document.getElementById('final-score').textContent = 'SKÓRE: ' + state.score.toString().padStart(6, '0');
+  document.getElementById('save-status').textContent = '';
+  document.getElementById('player-name').value = '';
+}
+
+// ─── LEADERBOARD / SCORE STORAGE ─────────────────────────────────────────────
+// Using JSONBin.io as persistent backend
+// For local testing falls back to localStorage
+
+async function loadScores() {
+  // Always read localStorage first as base
+  let localScores = [];
+  try { localScores = JSON.parse(localStorage.getItem('si_scores') || '[]'); } catch {}
+
+  // Try JSONBin if configured
+  try {
+    const binId = localStorage.getItem('si_binId');
+    const binKey = localStorage.getItem('si_binKey');
+    if (!binId || !binKey) return localScores;
+    const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
+      headers: { 'X-Access-Key': binKey }
+    });
+    if (!res.ok) return localScores;
+    const data = await res.json();
+    return data.record.scores || localScores;
+  } catch {
+    return localScores;
+  }
+}
+
+async function saveScoreToStorage(name, score) {
+  const entry = { name: name.toUpperCase().slice(0, 12), score, date: new Date().toLocaleDateString('cs-CZ') };
+  // localStorage always
+  try {
+    const local = JSON.parse(localStorage.getItem('si_scores') || '[]');
+    local.push(entry);
+    local.sort((a, b) => b.score - a.score);
+    localStorage.setItem('si_scores', JSON.stringify(local.slice(0, 100)));
+  } catch {}
+
+  // Try JSONBin if configured
+  const binId = localStorage.getItem('si_binId');
+  const binKey = localStorage.getItem('si_binKey');
+  if (binId && binKey) {
+    try {
+      const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
+        headers: { 'X-Access-Key': binKey, 'Content-Type': 'application/json' }
+      });
+      let scores = [];
+      if (res.ok) { const d = await res.json(); scores = d.record.scores || []; }
+      scores.push(entry);
+      scores.sort((a, b) => b.score - a.score);
+      scores = scores.slice(0, 100);
+      await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-Access-Key': binKey },
+        body: JSON.stringify({ scores })
+      });
+      return { ok: true, online: true };
+    } catch { return { ok: true, online: false }; }
+  }
+  return { ok: true, online: false };
+}
+
+async function saveScore() {
+  const name = document.getElementById('player-name').value.trim();
+  if (!name) { document.getElementById('save-status').textContent = '⚠ Zadej jméno!'; return; }
+  document.getElementById('save-status').textContent = '⏳ Ukládám...';
+  const result = await saveScoreToStorage(name, state.score);
+  if (result.online) {
+    document.getElementById('save-status').textContent = '✅ Uloženo online!';
+  } else {
+    document.getElementById('save-status').textContent = '💾 Uloženo lokálně (nastav JSONBin pro online)';
+  }
+}
+
+async function showLeaderboard() {
+  show('leaderboard-screen');
+  const scores = await loadScores();
+  const tbody = document.getElementById('lb-body');
+  tbody.innerHTML = '';
+  if (scores.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:rgba(0,255,136,0.4);padding:20px">Zatím žádná skóre</td></tr>';
+    return;
+  }
+  scores.slice(0, 15).forEach((s, i) => {
+    const medals = ['🥇', '🥈', '🥉'];
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><span class="rank-badge">${medals[i] || (i+1)}</span></td><td>${s.name}</td><td style="color:var(--yellow)">${String(s.score).padStart(6,'0')}</td><td style="color:rgba(0,255,136,0.5)">${s.date || ''}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+// ─── INPUT ────────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  keys[e.key] = true;
+  if ([' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) e.preventDefault();
+});
+document.addEventListener('keyup', e => keys[e.key] = false);
+
+// ─── JSONBIN SETUP (called from instructions) ─────────────────────────────────
+// To enable online scores: call setupJsonBin('YOUR_BIN_ID', 'YOUR_ACCESS_KEY')
+window.setupJsonBin = (binId, key) => {
+  localStorage.setItem('si_binId', binId);
+  localStorage.setItem('si_binKey', key);
+  console.log('JSONBin configured!');
+};
+</script>
+</body>
+</html>
