@@ -1,4 +1,5 @@
 Hra jde spustit zde -> https://dbrvsk-git.github.io/space-invaders/
+
 Skóre na tomto odkazu nefunguje globálně.
 
 --------------------------------------------------------------------------
